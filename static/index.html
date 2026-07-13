@@ -1,0 +1,1155 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fake Komari Agent</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f7f4;
+      --surface: #ffffff;
+      --line: #deded8;
+      --text: #232522;
+      --muted: #6d7069;
+      --blue: #2563eb;
+      --green: #15803d;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --field: #fafafa;
+      --shadow: 0 8px 24px rgba(34, 36, 32, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 12px;
+      color: var(--text);
+      background: var(--surface);
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: #bdbdb5;
+      background: #f4f4ef;
+    }
+
+    button.primary {
+      border-color: var(--blue);
+      color: #fff;
+      background: var(--blue);
+    }
+
+    button.danger {
+      border-color: #f0b0b0;
+      color: var(--red);
+    }
+
+    button.small {
+      height: 28px;
+      padding: 0 8px;
+      font-size: 12px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      min-width: 0;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 9px;
+      color: var(--text);
+      background: var(--field);
+      outline: none;
+    }
+
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      height: 58px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #2563eb 0%, #16a34a 100%);
+    }
+
+    .brand-title {
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .brand-sub {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 330px minmax(0, 1fr);
+      min-height: calc(100vh - 58px);
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: #fbfbf8;
+    }
+
+    .side-actions,
+    .form-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .agent-list {
+      display: grid;
+      gap: 1px;
+    }
+
+    .agent-row {
+      width: 100%;
+      height: auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      border-radius: 0;
+      padding: 12px;
+      text-align: left;
+      background: transparent;
+    }
+
+    .agent-row.active {
+      background: #eef4ff;
+    }
+
+    .agent-name {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-weight: 650;
+    }
+
+    .agent-meta {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #a1a1aa;
+    }
+
+    .dot.connected {
+      background: var(--green);
+    }
+
+    .dot.running {
+      background: var(--amber);
+    }
+
+    .dot.error {
+      background: var(--red);
+    }
+
+    .content {
+      min-width: 0;
+      padding: 18px;
+    }
+
+    .editor {
+      max-width: 1180px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .editor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .editor-title {
+      min-width: 0;
+    }
+
+    .editor-title strong {
+      display: block;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-size: 16px;
+    }
+
+    .editor-title span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .form-actions {
+      justify-content: flex-end;
+      padding: 0;
+      border: 0;
+    }
+
+    form {
+      display: grid;
+      gap: 0;
+    }
+
+    section {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    section:last-child {
+      border-bottom: 0;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .span-2 {
+      grid-column: span 2;
+    }
+
+    .span-4 {
+      grid-column: span 4;
+    }
+
+    .checkline {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      height: 34px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .checkline input {
+      width: 16px;
+      height: 16px;
+      padding: 0;
+    }
+
+    .field-action {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: minmax(130px, 1fr) repeat(4, minmax(80px, 130px));
+      gap: 8px;
+      align-items: end;
+    }
+
+    .metric-head {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric-name {
+      align-self: center;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .empty {
+      padding: 28px 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      max-width: min(420px, calc(100vw - 32px));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      transform: translateY(18px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 150ms ease, transform 150ms ease;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 960px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .agent-list {
+        max-height: 260px;
+        overflow: auto;
+      }
+
+      .grid,
+      .grid.two,
+      .grid.three {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .span-4 {
+        grid-column: span 2;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .metric-name,
+      .metric-head {
+        grid-column: span 2;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .topbar,
+      .editor-head,
+      .side-actions {
+        align-items: stretch;
+        flex-direction: column;
+        height: auto;
+      }
+
+      .content {
+        padding: 10px;
+      }
+
+      .grid,
+      .grid.two,
+      .grid.three {
+        grid-template-columns: 1fr;
+      }
+
+      .span-2,
+      .span-4 {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <div>
+        <div class="brand-title">Fake Komari Agent</div>
+        <div class="brand-sub" id="summary">0 agents</div>
+      </div>
+    </div>
+    <div class="status" id="health"><span class="dot"></span><span>checking</span></div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="side-actions">
+        <button class="primary" id="newBtn" type="button">新建</button>
+        <button id="refreshBtn" type="button">刷新</button>
+      </div>
+      <div class="agent-list" id="agentList"></div>
+    </aside>
+
+    <main class="content">
+      <div class="editor">
+        <div class="editor-head">
+          <div class="editor-title">
+            <strong id="editorTitle">新建虚拟探针</strong>
+            <span id="editorSub">JSON-RPC V2 WebSocket</span>
+          </div>
+          <div class="form-actions">
+            <button id="startBtn" type="button">启动</button>
+            <button id="stopBtn" type="button">停止</button>
+            <button class="danger" id="deleteBtn" type="button">删除</button>
+            <button class="primary" form="agentForm" type="submit">保存</button>
+          </div>
+        </div>
+
+        <form id="agentForm">
+          <section>
+            <h2>连接</h2>
+            <div class="grid">
+              <label class="span-2">名称
+                <input id="name" autocomplete="off" required>
+              </label>
+              <label class="span-2">面板地址
+                <input id="endpoint" placeholder="https://komari.example.com" required>
+              </label>
+              <label class="span-2">自动发现密钥
+                <input id="discoveryKey" type="password" autocomplete="off">
+              </label>
+              <label>上报间隔 秒
+                <input id="reportInterval" type="number" min="0.2" step="0.1">
+              </label>
+              <label>基础信息 分钟
+                <input id="basicInterval" type="number" min="0.1" step="0.1">
+              </label>
+              <label>重连间隔 秒
+                <input id="reconnectInterval" type="number" min="1" step="1">
+              </label>
+              <label class="checkline">
+                <input id="enabled" type="checkbox">
+                启用
+              </label>
+              <label class="checkline">
+                <input id="ignoreCert" type="checkbox">
+                忽略 TLS 证书错误
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h2>模板</h2>
+            <div class="grid three">
+              <label class="span-2">设备模板
+                <select id="templateSelect"></select>
+              </label>
+              <label>&nbsp;
+                <button id="applyTemplateBtn" type="button">应用模板</button>
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h2>设备信息</h2>
+            <div class="grid">
+              <label>系统预选
+                <select id="osPresetSelect"></select>
+              </label>
+              <label>系统
+                <input id="os">
+              </label>
+              <label>架构
+                <input id="arch">
+              </label>
+              <label>内核
+                <input id="kernel">
+              </label>
+              <label>虚拟化
+                <input id="virtualization">
+              </label>
+              <label class="span-2">CPU 预选
+                <select id="cpuPresetSelect"></select>
+              </label>
+              <label class="span-2">CPU
+                <input id="cpuName">
+              </label>
+              <label>逻辑核心
+                <input id="cpuCores" type="number" min="0" step="1">
+              </label>
+              <label>物理核心
+                <input id="cpuPhysicalCores" type="number" min="0" step="1">
+              </label>
+              <label>内存 GiB
+                <input id="memTotalGiB" type="number" min="0" step="0.1">
+              </label>
+              <label>Swap GiB
+                <input id="swapTotalGiB" type="number" min="0" step="0.1">
+              </label>
+              <label>磁盘 GiB
+                <input id="diskTotalGiB" type="number" min="0" step="0.1">
+              </label>
+              <label>Agent 版本
+                <input id="version">
+              </label>
+              <label>IPv4
+                <div class="field-action">
+                  <input id="ipv4">
+                  <button id="randomIPv4Btn" type="button">随机</button>
+                </div>
+              </label>
+              <label>IPv6
+                <div class="field-action">
+                  <input id="ipv6">
+                  <button id="randomIPv6Btn" type="button">随机</button>
+                </div>
+              </label>
+              <label class="span-2">GPU
+                <input id="gpuName">
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h2>波动行为</h2>
+            <div class="metric-grid" id="metricGrid">
+              <div class="metric-head">指标</div>
+              <div class="metric-head">基准</div>
+              <div class="metric-head">波动</div>
+              <div class="metric-head">最小</div>
+              <div class="metric-head">最大</div>
+            </div>
+            <div class="grid two">
+              <label>初始上传 GiB
+                <input id="initialTotalUpGiB" type="number" min="0" step="0.1">
+              </label>
+              <label>初始下载 GiB
+                <input id="initialTotalDownGiB" type="number" min="0" step="0.1">
+              </label>
+              <label>初始在线 秒
+                <input id="initialUptimeSeconds" type="number" min="0" step="1">
+              </label>
+              <label>主页消息
+                <input id="message">
+              </label>
+            </div>
+          </section>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const GiB = 1024 * 1024 * 1024;
+    const KiB = 1024;
+    const state = {
+      agents: [],
+      templates: [],
+      current: null,
+      isNew: true,
+      defaultConfig: null,
+      dirty: false
+    };
+
+    const metricDefs = [
+      ["cpu", "CPU %", "percent"],
+      ["ram_used_percent", "内存使用 %", "percent"],
+      ["swap_used_percent", "Swap 使用 %", "percent"],
+      ["disk_used_percent", "磁盘使用 %", "percent"],
+      ["network_up_bytes_per_second", "上传 KiB/s", "kib"],
+      ["network_down_bytes_per_second", "下载 KiB/s", "kib"],
+      ["load1", "Load 1", "plain"],
+      ["load5", "Load 5", "plain"],
+      ["load15", "Load 15", "plain"],
+      ["tcp_connections", "TCP 连接", "int"],
+      ["udp_connections", "UDP 连接", "int"],
+      ["processes", "进程数", "int"]
+    ];
+
+    const osPresets = [
+      "Ubuntu 24.04 LTS",
+      "Ubuntu 22.04 LTS",
+      "Debian GNU/Linux 13",
+      "Debian GNU/Linux 12",
+      "CentOS Stream 10",
+      "CentOS Stream 9",
+      "AlmaLinux 10",
+      "Rocky Linux 9",
+      "Alpine Linux 3.22",
+      "Arch Linux",
+      "Fedora Linux 42",
+      "openSUSE Leap 15.6",
+      "FreeBSD 14.3",
+      "Windows Server 2025",
+      "Windows Server 2022",
+      "Windows 11 Pro"
+    ];
+
+    const cpuPresets = [
+      "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+      "Intel(R) Xeon(R) Gold 6248R CPU @ 3.00GHz",
+      "Intel(R) Xeon(R) E5-2680 v4 @ 2.40GHz",
+      "Intel(R) Core(TM) i9-14900K",
+      "Intel(R) Core(TM) i7-12700H",
+      "AMD EPYC 7B13",
+      "AMD EPYC 7543P 32-Core Processor",
+      "AMD EPYC 9654 96-Core Processor",
+      "AMD Ryzen 9 9950X3D",
+      "AMD Ryzen 7 7800X3D",
+      "Apple M4",
+      "Apple M3 Pro",
+      "Ampere Altra Q80-30",
+      "ARM Cortex-A55",
+      "ARM Neoverse-N1"
+    ];
+
+    const $ = (id) => document.getElementById(id);
+
+    function metricInputId(key, field) {
+      return "metric_" + key + "_" + field;
+    }
+
+    function renderMetricInputs() {
+      const grid = $("metricGrid");
+      metricDefs.forEach(([key, label, unit]) => {
+        const name = document.createElement("div");
+        name.className = "metric-name";
+        name.textContent = label;
+        grid.appendChild(name);
+        ["base", "jitter", "min", "max"].forEach((field) => {
+          const input = document.createElement("input");
+          input.id = metricInputId(key, field);
+          input.type = "number";
+          input.step = unit === "int" ? "1" : "0.01";
+          input.min = field === "max" ? "" : "0";
+          grid.appendChild(input);
+        });
+      });
+    }
+
+    function renderPresetSelect(id, presets) {
+      const select = $(id);
+      select.innerHTML = "";
+      const custom = document.createElement("option");
+      custom.value = "";
+      custom.textContent = "自定义";
+      select.appendChild(custom);
+      presets.forEach((preset) => {
+        const option = document.createElement("option");
+        option.value = preset;
+        option.textContent = preset;
+        select.appendChild(option);
+      });
+    }
+
+    function setPresetValue(selectId, presets, value) {
+      $(selectId).value = presets.includes(value) ? value : "";
+    }
+
+    function applyPreset(selectId, targetId) {
+      const value = $(selectId).value;
+      if (!value) return;
+      $(targetId).value = value;
+      state.dirty = true;
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, {
+        headers: options.body ? {"Content-Type": "application/json"} : undefined,
+        ...options
+      });
+      let body = null;
+      const text = await res.text();
+      if (text) {
+        body = JSON.parse(text);
+      }
+      if (!res.ok) {
+        throw new Error((body && body.error) || res.statusText);
+      }
+      return body;
+    }
+
+    async function loadAll(keepSelection = true) {
+      const [health, defaults, templates, agents] = await Promise.all([
+        api("/api/health"),
+        api("/api/default"),
+        api("/api/templates"),
+        api("/api/agents")
+      ]);
+      $("health").innerHTML = '<span class="dot connected"></span><span>' + health.version + '</span>';
+      state.defaultConfig = defaults;
+      state.templates = templates;
+      state.agents = agents;
+      renderTemplates();
+      renderList();
+
+      if (keepSelection && state.isNew) {
+        return;
+      }
+      if (keepSelection && state.current) {
+        const fresh = agents.find((a) => a.id === state.current.id);
+        if (fresh) {
+          if (!state.dirty) {
+            state.current = cloneConfig(fresh);
+            fillForm(state.current);
+          }
+          return;
+        }
+      }
+      if (agents.length > 0) {
+        selectAgent(agents[0].id);
+      } else {
+        newAgent();
+      }
+    }
+
+    function renderTemplates() {
+      const select = $("templateSelect");
+      select.innerHTML = "";
+      state.templates.forEach((template) => {
+        const option = document.createElement("option");
+        option.value = template.id;
+        option.textContent = template.name;
+        select.appendChild(option);
+      });
+    }
+
+    function renderList() {
+      $("summary").textContent = state.agents.length + " agents";
+      const list = $("agentList");
+      list.innerHTML = "";
+      if (state.agents.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "暂无探针";
+        list.appendChild(empty);
+        return;
+      }
+      state.agents.forEach((agent) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.className = "agent-row" + (state.current && state.current.id === agent.id ? " active" : "");
+        row.addEventListener("click", () => selectAgent(agent.id));
+
+        const left = document.createElement("div");
+        const name = document.createElement("div");
+        name.className = "agent-name";
+        name.textContent = agent.name || agent.id;
+        const meta = document.createElement("div");
+        meta.className = "agent-meta";
+        meta.textContent = agent.endpoint || "no endpoint";
+        left.append(name, meta);
+
+        const st = document.createElement("div");
+        st.className = "status";
+        const dot = document.createElement("span");
+        dot.className = "dot " + statusClass(agent.status);
+        const label = document.createElement("span");
+        label.textContent = statusText(agent.status);
+        st.append(dot, label);
+
+        row.append(left, st);
+        list.appendChild(row);
+      });
+    }
+
+    function statusClass(status) {
+      if (!status || !status.running) return "";
+      if (status.connected) return "connected";
+      if (status.last_error) return "error";
+      return "running";
+    }
+
+    function statusText(status) {
+      if (!status || !status.running) return "stopped";
+      if (status.connected) return "connected";
+      return status.state || "running";
+    }
+
+    function selectAgent(id) {
+      const found = state.agents.find((agent) => agent.id === id);
+      if (!found) return;
+      state.current = cloneConfig(found);
+      state.isNew = false;
+      fillForm(state.current);
+      renderList();
+    }
+
+    function newAgent() {
+      state.current = cloneConfig(state.defaultConfig);
+      state.current.id = "";
+      state.current.name = "Virtual VPS";
+      state.current.endpoint = "";
+      state.current.discovery_key = "";
+      state.current.token = "";
+      state.current.registered_uuid = "";
+      state.current.enabled = false;
+      randomizeBasicInfoIPs(state.current.basic_info);
+      state.isNew = true;
+      fillForm(state.current);
+      renderList();
+    }
+
+    function cloneConfig(agent) {
+      const cfg = JSON.parse(JSON.stringify(agent));
+      delete cfg.status;
+      return cfg;
+    }
+
+    function fillForm(cfg) {
+      $("editorTitle").textContent = cfg.id ? cfg.name : "新建虚拟探针";
+      $("editorSub").textContent = cfg.id ? cfg.id + (cfg.registered_uuid ? " / " + cfg.registered_uuid : "") : "unsaved";
+      $("deleteBtn").disabled = !cfg.id;
+      $("startBtn").disabled = !cfg.id;
+      $("stopBtn").disabled = !cfg.id;
+
+      $("name").value = cfg.name || "";
+      $("endpoint").value = cfg.endpoint || "";
+      $("discoveryKey").value = cfg.discovery_key || "";
+      $("enabled").checked = !!cfg.enabled;
+      $("ignoreCert").checked = !!cfg.ignore_unsafe_cert;
+      $("reportInterval").value = cfg.report_interval_seconds || 1;
+      $("basicInterval").value = cfg.basic_info_interval_minutes || 5;
+      $("reconnectInterval").value = cfg.reconnect_interval_seconds || 5;
+
+      const info = cfg.basic_info || {};
+      $("os").value = info.os || "";
+      setPresetValue("osPresetSelect", osPresets, info.os || "");
+      $("arch").value = info.arch || "";
+      $("kernel").value = info.kernel_version || "";
+      $("virtualization").value = info.virtualization || "";
+      $("cpuName").value = info.cpu_name || "";
+      setPresetValue("cpuPresetSelect", cpuPresets, info.cpu_name || "");
+      $("cpuCores").value = info.cpu_cores || 0;
+      $("cpuPhysicalCores").value = info.cpu_physical_cores || 0;
+      $("memTotalGiB").value = bytesToGiB(info.mem_total);
+      $("swapTotalGiB").value = bytesToGiB(info.swap_total);
+      $("diskTotalGiB").value = bytesToGiB(info.disk_total);
+      $("version").value = info.version || "";
+      $("ipv4").value = info.ipv4 || "";
+      $("ipv6").value = info.ipv6 || "";
+      $("gpuName").value = info.gpu_name || "";
+
+      const behavior = cfg.behavior || {};
+      metricDefs.forEach(([key, , unit]) => {
+        const metric = behavior[key] || {};
+        ["base", "jitter", "min", "max"].forEach((field) => {
+          const input = $(metricInputId(key, field));
+          input.value = metricValueForUI(metric[field], unit);
+        });
+      });
+      $("initialTotalUpGiB").value = bytesToGiB(behavior.initial_total_up);
+      $("initialTotalDownGiB").value = bytesToGiB(behavior.initial_total_down);
+      $("initialUptimeSeconds").value = behavior.initial_uptime_seconds || 0;
+      $("message").value = behavior.message || "";
+      state.dirty = false;
+    }
+
+    function collectForm() {
+      const cfg = {
+        id: state.current && state.current.id ? state.current.id : "",
+        name: $("name").value.trim(),
+        enabled: $("enabled").checked,
+        endpoint: $("endpoint").value.trim(),
+        discovery_key: $("discoveryKey").value.trim(),
+        registered_uuid: state.current && state.current.registered_uuid ? state.current.registered_uuid : "",
+        token: state.current && state.current.token ? state.current.token : "",
+        ignore_unsafe_cert: $("ignoreCert").checked,
+        report_interval_seconds: numberValue("reportInterval"),
+        basic_info_interval_minutes: numberValue("basicInterval"),
+        reconnect_interval_seconds: numberValue("reconnectInterval"),
+        basic_info: {
+          arch: $("arch").value.trim(),
+          cpu_cores: intValue("cpuCores"),
+          cpu_physical_cores: intValue("cpuPhysicalCores"),
+          cpu_name: $("cpuName").value.trim(),
+          disk_total: giBToBytes(numberValue("diskTotalGiB")),
+          gpu_name: $("gpuName").value.trim(),
+          ipv4: $("ipv4").value.trim(),
+          ipv6: $("ipv6").value.trim(),
+          mem_total: giBToBytes(numberValue("memTotalGiB")),
+          os: $("os").value.trim(),
+          kernel_version: $("kernel").value.trim(),
+          swap_total: giBToBytes(numberValue("swapTotalGiB")),
+          version: $("version").value.trim(),
+          virtualization: $("virtualization").value.trim()
+        },
+        behavior: {
+          initial_total_up: giBToBytes(numberValue("initialTotalUpGiB")),
+          initial_total_down: giBToBytes(numberValue("initialTotalDownGiB")),
+          initial_uptime_seconds: intValue("initialUptimeSeconds"),
+          message: $("message").value.trim()
+        }
+      };
+      metricDefs.forEach(([key, , unit]) => {
+        cfg.behavior[key] = {
+          base: metricValueFromUI($(metricInputId(key, "base")).value, unit),
+          jitter: metricValueFromUI($(metricInputId(key, "jitter")).value, unit),
+          min: metricValueFromUI($(metricInputId(key, "min")).value, unit),
+          max: metricValueFromUI($(metricInputId(key, "max")).value, unit)
+        };
+      });
+      return cfg;
+    }
+
+    function applyTemplate() {
+      const selected = state.templates.find((template) => template.id === $("templateSelect").value);
+      if (!selected || !state.current) return;
+      const keep = collectForm();
+      keep.basic_info = JSON.parse(JSON.stringify(selected.basic_info));
+      keep.behavior = JSON.parse(JSON.stringify(selected.behavior));
+      randomizeBasicInfoIPs(keep.basic_info);
+      state.current = keep;
+      fillForm(keep);
+      state.dirty = true;
+    }
+
+    async function saveCurrent(event) {
+      event.preventDefault();
+      const cfg = collectForm();
+      const path = state.isNew ? "/api/agents" : "/api/agents/" + encodeURIComponent(cfg.id);
+      const method = state.isNew ? "POST" : "PUT";
+      const view = await api(path, {method, body: JSON.stringify(cfg)});
+      state.current = cloneConfig(view);
+      state.isNew = false;
+      state.dirty = false;
+      await loadAll(true);
+      toast("已保存");
+    }
+
+    async function startCurrent() {
+      if (!state.current || !state.current.id) return;
+      await api("/api/agents/" + encodeURIComponent(state.current.id) + "/start", {method: "POST"});
+      await loadAll(true);
+      toast("已启动");
+    }
+
+    async function stopCurrent() {
+      if (!state.current || !state.current.id) return;
+      await api("/api/agents/" + encodeURIComponent(state.current.id) + "/stop", {method: "POST"});
+      await loadAll(true);
+      toast("已停止");
+    }
+
+    async function deleteCurrent() {
+      if (!state.current || !state.current.id) return;
+      if (!confirm("删除 " + state.current.name + " ?")) return;
+      await api("/api/agents/" + encodeURIComponent(state.current.id), {method: "DELETE"});
+      state.current = null;
+      await loadAll(false);
+      toast("已删除");
+    }
+
+    function numberValue(id) {
+      const value = Number($(id).value);
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function intValue(id) {
+      return Math.round(numberValue(id));
+    }
+
+    function bytesToGiB(value) {
+      return roundNumber((Number(value) || 0) / GiB, 2);
+    }
+
+    function giBToBytes(value) {
+      return Math.round((Number(value) || 0) * GiB);
+    }
+
+    function metricValueForUI(value, unit) {
+      const num = Number(value) || 0;
+      if (unit === "kib") return roundNumber(num / KiB, 2);
+      return roundNumber(num, unit === "int" ? 0 : 2);
+    }
+
+    function metricValueFromUI(value, unit) {
+      const num = Number(value) || 0;
+      if (unit === "kib") return Math.round(num * KiB);
+      if (unit === "int") return Math.round(num);
+      return num;
+    }
+
+    function randomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function randomIPv4() {
+      while (true) {
+        const a = randomInt(1, 223);
+        const b = randomInt(0, 255);
+        const c = randomInt(0, 255);
+        const d = randomInt(1, 254);
+        if (a === 10 || a === 127 || a === 169 && b === 254) continue;
+        if (a === 100 && b >= 64 && b <= 127) continue;
+        if (a === 172 && b >= 16 && b <= 31) continue;
+        if (a === 192 && b === 168) continue;
+        if (a === 192 && b === 0 && c === 0) continue;
+        if (a === 192 && b === 0 && c === 2) continue;
+        if (a === 192 && b === 88 && c === 99) continue;
+        if (a === 198 && (b === 18 || b === 19)) continue;
+        if (a === 198 && b === 51 && c === 100) continue;
+        if (a === 203 && b === 0 && c === 113) continue;
+        return [a, b, c, d].join(".");
+      }
+    }
+
+    function randomIPv6() {
+      while (true) {
+        const groups = [];
+        groups.push(randomInt(0x2000, 0x3fff).toString(16));
+        for (let i = 0; i < 7; i++) {
+          groups.push(randomInt(0, 0xffff).toString(16));
+        }
+        if (groups[0] === "2001" && groups[1] === "db8") continue;
+        return groups.join(":");
+      }
+    }
+
+    function randomizeBasicInfoIPs(info) {
+      if (!info) return;
+      info.ipv4 = randomIPv4();
+      info.ipv6 = randomIPv6();
+    }
+
+    function setRandomIP(targetId, generator) {
+      $(targetId).value = generator();
+      state.dirty = true;
+    }
+
+    function roundNumber(value, places) {
+      const pow = Math.pow(10, places);
+      return Math.round(value * pow) / pow;
+    }
+
+    let toastTimer = null;
+    function toast(message) {
+      const el = $("toast");
+      el.textContent = message;
+      el.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+    }
+
+    function bind(id, event, handler) {
+      $(id).addEventListener(event, async (e) => {
+        try {
+          await handler(e);
+        } catch (err) {
+          toast(err.message || String(err));
+        }
+      });
+    }
+
+    renderMetricInputs();
+    renderPresetSelect("osPresetSelect", osPresets);
+    renderPresetSelect("cpuPresetSelect", cpuPresets);
+    bind("newBtn", "click", newAgent);
+    bind("refreshBtn", "click", () => loadAll(true));
+    bind("applyTemplateBtn", "click", applyTemplate);
+    bind("agentForm", "submit", saveCurrent);
+    $("agentForm").addEventListener("input", () => {
+      state.dirty = true;
+    });
+    $("osPresetSelect").addEventListener("change", () => applyPreset("osPresetSelect", "os"));
+    $("cpuPresetSelect").addEventListener("change", () => applyPreset("cpuPresetSelect", "cpuName"));
+    $("os").addEventListener("input", () => setPresetValue("osPresetSelect", osPresets, $("os").value));
+    $("cpuName").addEventListener("input", () => setPresetValue("cpuPresetSelect", cpuPresets, $("cpuName").value));
+    $("randomIPv4Btn").addEventListener("click", () => setRandomIP("ipv4", randomIPv4));
+    $("randomIPv6Btn").addEventListener("click", () => setRandomIP("ipv6", randomIPv6));
+    bind("startBtn", "click", startCurrent);
+    bind("stopBtn", "click", stopCurrent);
+    bind("deleteBtn", "click", deleteCurrent);
+
+    loadAll(false).catch((err) => {
+      $("health").innerHTML = '<span class="dot error"></span><span>offline</span>';
+      toast(err.message || String(err));
+    });
+    setInterval(() => {
+      loadAll(true).catch(() => {});
+    }, 3000);
+  </script>
+</body>
+</html>

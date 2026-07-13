@@ -1,0 +1,8 @@
+/data/
+/.agents/
+/.codex/
+/.gitrepo/
+
+# Local build outputs
+/fake-agent
+*.test
