@@ -46,6 +46,7 @@ GOCACHE=/tmp/go-build go run .
 - 基础信息通过 `agent.basicInfo` 发送，参数为 `params.info`。
 - 实时状态通过 `agent.report` 发送，参数为 `params.report`。
 - CPU、RAM、Swap、Disk、Network、Load、连接数和进程数按“基准值 + 波动范围”生成。
+- 设备 IPv4 可自动随机生成；在 IPv4 输入框填写区域代码后点击随机，会按该区域生成公网 IPv4。
 - 收到控制端下发事件时只统计 ignored，不执行命令、不模拟 ping、不建立终端、不回传任务结果。
 
 ## JSON 数据
