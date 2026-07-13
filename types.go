@@ -5,8 +5,9 @@ import "time"
 const appVersion = "0.1.0"
 
 type Database struct {
-	Version int           `json:"version"`
-	Agents  []AgentConfig `json:"agents"`
+	Version           int           `json:"version"`
+	PanelPasswordHash string        `json:"panel_password_hash"`
+	Agents            []AgentConfig `json:"agents"`
 }
 
 type AgentConfig struct {

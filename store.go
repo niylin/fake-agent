@@ -14,9 +14,10 @@ import (
 )
 
 type Store struct {
-	path string
-	mu   sync.RWMutex
-	db   Database
+	path                   string
+	generatedPanelPassword string
+	mu                     sync.RWMutex
+	db                     Database
 }
 
 func NewStore(path string) (*Store, error) {
@@ -36,21 +37,28 @@ func (s *Store) load() error {
 	}
 	b, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
-		s.db = Database{Version: 1, Agents: []AgentConfig{}}
-		return s.saveLocked()
+		return s.initEmptyLocked()
 	}
 	if err != nil {
 		return err
 	}
 	if len(strings.TrimSpace(string(b))) == 0 {
-		s.db = Database{Version: 1, Agents: []AgentConfig{}}
-		return s.saveLocked()
+		return s.initEmptyLocked()
 	}
 	if err := json.Unmarshal(b, &s.db); err != nil {
 		return fmt.Errorf("read %s: %w", s.path, err)
 	}
 	if s.db.Version == 0 {
 		s.db.Version = 1
+	}
+	if strings.TrimSpace(s.db.PanelPasswordHash) == "" {
+		password := randomPassword()
+		hash, err := hashPassword(password)
+		if err != nil {
+			return err
+		}
+		s.db.PanelPasswordHash = hash
+		s.generatedPanelPassword = password
 	}
 	if s.db.Agents == nil {
 		s.db.Agents = []AgentConfig{}
@@ -61,7 +69,23 @@ func (s *Store) load() error {
 	return s.saveLocked()
 }
 
+func (s *Store) initEmptyLocked() error {
+	password := randomPassword()
+	hash, err := hashPassword(password)
+	if err != nil {
+		return err
+	}
+	s.db = Database{Version: 1, PanelPasswordHash: hash, Agents: []AgentConfig{}}
+	s.generatedPanelPassword = password
+	return s.saveLocked()
+}
+
 func (s *Store) saveLocked() error {
+	s.refreshPanelPasswordHashFromDiskLocked()
+	return s.writeLocked()
+}
+
+func (s *Store) writeLocked() error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
@@ -75,6 +99,60 @@ func (s *Store) saveLocked() error {
 		return err
 	}
 	return os.Rename(tmp, s.path)
+}
+
+func (s *Store) refreshPanelPasswordHashFromDiskLocked() {
+	b, err := os.ReadFile(s.path)
+	if err != nil {
+		return
+	}
+	var diskDB Database
+	if err := json.Unmarshal(b, &diskDB); err != nil {
+		return
+	}
+	if strings.TrimSpace(diskDB.PanelPasswordHash) != "" && diskDB.PanelPasswordHash != s.db.PanelPasswordHash {
+		s.db.PanelPasswordHash = strings.TrimSpace(diskDB.PanelPasswordHash)
+	}
+}
+
+func (s *Store) PanelPasswordHash() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.refreshPanelPasswordHashFromDiskLocked()
+	return s.db.PanelPasswordHash
+}
+
+func (s *Store) GeneratedPanelPassword() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.generatedPanelPassword
+}
+
+func (s *Store) ResetPanelPassword(password string) (string, error) {
+	if strings.TrimSpace(password) == "" {
+		password = randomPassword()
+	}
+	if err := validateNewPassword(password); err != nil {
+		return "", err
+	}
+	hash, err := hashPassword(password)
+	if err != nil {
+		return "", err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.db.PanelPasswordHash = hash
+	if s.db.Version == 0 {
+		s.db.Version = 1
+	}
+	if s.db.Agents == nil {
+		s.db.Agents = []AgentConfig{}
+	}
+	if err := s.writeLocked(); err != nil {
+		return "", err
+	}
+	return password, nil
 }
 
 func (s *Store) All() []AgentConfig {

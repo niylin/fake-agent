@@ -21,11 +21,24 @@ func (a *App) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.handleIndex)
 	mux.HandleFunc("/api/health", a.handleHealth)
-	mux.HandleFunc("/api/default", a.handleDefault)
-	mux.HandleFunc("/api/templates", a.handleTemplates)
-	mux.HandleFunc("/api/agents", a.handleAgents)
-	mux.HandleFunc("/api/agents/", a.handleAgent)
+	mux.HandleFunc("/api/auth/login", a.handleLogin)
+	mux.HandleFunc("/api/auth/logout", a.handleLogout)
+	mux.HandleFunc("/api/default", a.withPanelAuth(a.handleDefault))
+	mux.HandleFunc("/api/templates", a.withPanelAuth(a.handleTemplates))
+	mux.HandleFunc("/api/agents", a.withPanelAuth(a.handleAgents))
+	mux.HandleFunc("/api/agents/", a.withPanelAuth(a.handleAgent))
 	return mux
+}
+
+func (a *App) withPanelAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		hash := a.manager.store.PanelPasswordHash()
+		if hash == "" || !validSessionCookie(r, hash) {
+			writeError(w, http.StatusUnauthorized, "login required")
+			return
+		}
+		next(w, r)
+	}
 }
 
 func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -50,6 +63,42 @@ func (a *App) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"status":  "ok",
 		"version": appVersion,
 	})
+}
+
+func (a *App) handleLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := readJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	hash := a.manager.store.PanelPasswordHash()
+	if hash == "" || !verifyPassword(req.Password, hash) {
+		http.SetCookie(w, clearSessionCookie(requestIsSecure(r)))
+		writeError(w, http.StatusUnauthorized, "invalid password")
+		return
+	}
+	cookie, err := newSessionCookie(hash, requestIsSecure(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	http.SetCookie(w, cookie)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (a *App) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	http.SetCookie(w, clearSessionCookie(requestIsSecure(r)))
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (a *App) handleDefault(w http.ResponseWriter, r *http.Request) {
@@ -195,4 +244,11 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	writeJSON(w, status, map[string]string{
 		"error": fmt.Sprintf("%s", message),
 	})
+}
+
+func requestIsSecure(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }

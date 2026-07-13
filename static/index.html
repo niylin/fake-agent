@@ -496,7 +496,7 @@
                 <input id="endpoint" placeholder="https://komari.example.com" required>
               </label>
               <label class="span-2">自动发现密钥
-                <input id="discoveryKey" type="password" autocomplete="off">
+                <input id="discoveryKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
               </label>
               <label>上报间隔 秒
                 <input id="reportInterval" type="number" min="0.2" step="0.1">
@@ -574,7 +574,7 @@
               </label>
               <label>IPv4
                 <div class="field-action">
-                  <input id="ipv4">
+                  <input id="ipv4" placeholder="IP 或地区码，如 US">
                   <button id="randomIPv4Btn" type="button">随机</button>
                 </div>
               </label>
@@ -685,6 +685,25 @@
       "ARM Neoverse-N1"
     ];
 
+    const countryIPv4Ranges = {
+      US: ["3.0.0.0/8", "4.0.0.0/9", "8.0.0.0/8", "13.0.0.0/8", "23.0.0.0/8", "34.0.0.0/8", "35.0.0.0/8", "52.0.0.0/8", "54.0.0.0/8", "63.0.0.0/8"],
+      CN: ["36.0.0.0/8", "39.128.0.0/10", "42.0.0.0/8", "58.0.0.0/7", "60.0.0.0/8", "101.0.0.0/8", "111.0.0.0/8", "112.0.0.0/7", "117.0.0.0/8", "120.0.0.0/7"],
+      HK: ["1.32.0.0/13", "14.136.0.0/13", "27.109.0.0/16", "42.200.0.0/14", "58.64.0.0/13", "103.6.0.0/16", "118.140.0.0/14", "123.202.0.0/15"],
+      TW: ["36.224.0.0/11", "59.112.0.0/12", "61.216.0.0/13", "111.240.0.0/12", "114.24.0.0/14", "118.160.0.0/12", "122.116.0.0/14", "123.192.0.0/12"],
+      JP: ["14.0.0.0/8", "27.80.0.0/12", "49.128.0.0/9", "60.32.0.0/12", "106.128.0.0/10", "110.128.0.0/12", "133.0.0.0/8", "153.128.0.0/9"],
+      SG: ["18.136.0.0/13", "43.224.0.0/11", "103.0.0.0/10", "116.12.0.0/14", "119.73.0.0/16", "128.199.0.0/16", "202.12.0.0/15"],
+      KR: ["1.208.0.0/12", "14.32.0.0/11", "27.96.0.0/12", "39.112.0.0/12", "58.72.0.0/13", "59.0.0.0/11", "61.72.0.0/13", "121.128.0.0/10"],
+      DE: ["2.160.0.0/11", "31.16.0.0/12", "46.80.0.0/12", "62.128.0.0/9", "78.32.0.0/11", "79.192.0.0/10", "84.128.0.0/10", "91.0.0.0/10"],
+      GB: ["2.24.0.0/13", "31.48.0.0/13", "51.0.0.0/8", "62.24.0.0/13", "80.0.0.0/11", "81.128.0.0/11", "86.128.0.0/10", "90.192.0.0/10"],
+      FR: ["2.0.0.0/12", "37.160.0.0/12", "46.192.0.0/11", "51.15.0.0/16", "77.128.0.0/11", "78.192.0.0/10", "82.64.0.0/11", "90.0.0.0/9"],
+      NL: ["5.132.0.0/14", "31.160.0.0/12", "37.72.0.0/13", "62.84.0.0/14", "80.56.0.0/13", "82.72.0.0/13", "84.80.0.0/13", "145.0.0.0/8"],
+      CA: ["24.48.0.0/13", "64.114.0.0/15", "70.24.0.0/13", "72.136.0.0/13", "99.224.0.0/11", "142.0.0.0/8", "154.5.0.0/16", "184.64.0.0/11"],
+      AU: ["1.120.0.0/11", "14.200.0.0/13", "27.32.0.0/12", "49.176.0.0/12", "58.160.0.0/11", "101.160.0.0/11", "110.20.0.0/14", "120.16.0.0/12"],
+      IN: ["14.96.0.0/11", "27.56.0.0/13", "49.32.0.0/11", "59.88.0.0/13", "103.0.0.0/9", "106.192.0.0/10", "117.192.0.0/10", "122.160.0.0/12"],
+      BR: ["45.4.0.0/14", "45.160.0.0/11", "177.0.0.0/8", "179.0.0.0/8", "186.192.0.0/10", "187.0.0.0/8", "189.0.0.0/8", "200.128.0.0/9"],
+      RU: ["5.8.0.0/13", "31.128.0.0/11", "37.112.0.0/13", "46.0.0.0/10", "77.88.0.0/16", "78.24.0.0/13", "81.176.0.0/12", "95.24.0.0/13"]
+    };
+
     const $ = (id) => document.getElementById(id);
 
     function metricInputId(key, field) {
@@ -735,9 +754,45 @@
       state.dirty = true;
     }
 
-    async function api(path, options = {}) {
+    let loginPromise = null;
+
+    async function promptLogin() {
+      if (loginPromise) return loginPromise;
+      loginPromise = (async () => {
+        const password = (prompt("请输入面板密码") || "").trim();
+        if (!password) {
+          throw new Error("需要面板密码");
+        }
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          credentials: "same-origin",
+          body: JSON.stringify({password})
+        });
+        let body = null;
+        const text = await res.text();
+        if (text) {
+          body = JSON.parse(text);
+        }
+        if (!res.ok) {
+          throw new Error((body && body.error) || res.statusText);
+        }
+      })();
+      try {
+        await loginPromise;
+      } finally {
+        loginPromise = null;
+      }
+    }
+
+    async function api(path, options = {}, retried = false) {
+      const headers = {};
+      if (options.body) {
+        headers["Content-Type"] = "application/json";
+      }
       const res = await fetch(path, {
-        headers: options.body ? {"Content-Type": "application/json"} : undefined,
+        headers,
+        credentials: "same-origin",
         ...options
       });
       let body = null;
@@ -746,6 +801,10 @@
         body = JSON.parse(text);
       }
       if (!res.ok) {
+        if (res.status === 401 && !retried) {
+          await promptLogin();
+          return api(path, options, true);
+        }
         throw new Error((body && body.error) || res.statusText);
       }
       return body;
@@ -1056,6 +1115,36 @@
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
+    function ipToNumber(ip) {
+      return ip.split(".").reduce((acc, part) => (acc << 8) + Number(part), 0) >>> 0;
+    }
+
+    function numberToIP(value) {
+      return [
+        (value >>> 24) & 255,
+        (value >>> 16) & 255,
+        (value >>> 8) & 255,
+        value & 255
+      ].join(".");
+    }
+
+    function randomIPv4FromCIDR(cidr) {
+      const parts = cidr.split("/");
+      const base = ipToNumber(parts[0]);
+      const prefix = Number(parts[1]);
+      const size = Math.pow(2, 32 - prefix);
+      const offsetMin = size > 2 ? 1 : 0;
+      const offsetMax = size > 2 ? size - 2 : size - 1;
+      return numberToIP((base + randomInt(offsetMin, offsetMax)) >>> 0);
+    }
+
+    function randomCountryIPv4(countryCode) {
+      const code = countryCode.trim().toUpperCase();
+      const ranges = countryIPv4Ranges[code];
+      if (!ranges) return "";
+      return randomIPv4FromCIDR(ranges[randomInt(0, ranges.length - 1)]);
+    }
+
     function randomIPv4() {
       while (true) {
         const a = randomInt(1, 223);
@@ -1074,6 +1163,16 @@
         if (a === 203 && b === 0 && c === 113) continue;
         return [a, b, c, d].join(".");
       }
+    }
+
+    function randomIPv4ForInput() {
+      const value = $("ipv4").value.trim().toUpperCase();
+      if (/^[A-Z]{2}$/.test(value)) {
+        const ip = randomCountryIPv4(value);
+        if (ip) return ip;
+        toast("未内置地区码 " + value + "，已使用普通公网随机");
+      }
+      return randomIPv4();
     }
 
     function randomIPv6() {
@@ -1137,7 +1236,7 @@
     $("cpuPresetSelect").addEventListener("change", () => applyPreset("cpuPresetSelect", "cpuName"));
     $("os").addEventListener("input", () => setPresetValue("osPresetSelect", osPresets, $("os").value));
     $("cpuName").addEventListener("input", () => setPresetValue("cpuPresetSelect", cpuPresets, $("cpuName").value));
-    $("randomIPv4Btn").addEventListener("click", () => setRandomIP("ipv4", randomIPv4));
+    $("randomIPv4Btn").addEventListener("click", () => setRandomIP("ipv4", randomIPv4ForInput));
     $("randomIPv6Btn").addEventListener("click", () => setRandomIP("ipv6", randomIPv6));
     bind("startBtn", "click", startCurrent);
     bind("stopBtn", "click", stopCurrent);
