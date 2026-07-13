@@ -37,6 +37,41 @@ go run . -data data/agents.json -reset-password 'your-new-password'
 GOCACHE=/tmp/go-build go run .
 ```
 
+## Nginx 反代
+
+程序默认监听 `127.0.0.1:8099`，可以用 Nginx 通过 HTTPS 暴露到公网域名：
+
+```nginx
+server {
+    listen 80;
+    server_name fake-agent.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name fake-agent.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/fake-agent.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/fake-agent.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8099;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+保持 `X-Forwarded-Proto` 为 `https`，程序会给登录 cookie 设置 `Secure`。
+
 ## 行为
 
 - 只支持 Komari V2 JSON-RPC。
